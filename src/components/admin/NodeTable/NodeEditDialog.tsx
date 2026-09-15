@@ -16,6 +16,7 @@ export function EditDialog({ item }: { item: z.infer<typeof schema> }) {
     token: item.token || "", // 从 item 初始化 token
     remark: item.remark || "", // 从 item 初始化 remark
     public_remark: item.public_remark || "", // 从 item 初始化 public_remark
+    private_tags: item.private_tags || "", // 从 item 初始化 private_tags
     weight: item.weight || 0,
   });
   const [loading, setLoading] = React.useState(false);
@@ -120,6 +121,22 @@ export function EditDialog({ item }: { item: z.infer<typeof schema> }) {
               disabled={loading}
             />
           </div>
+          <div>
+            <label className="block mb-1 text-sm font-medium text-muted-foreground">
+              {t("admin.nodeEdit.privateTags", "隐私标签（仅登录可见）")}
+            </label>
+            <TextField.Root
+              value={form.private_tags}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, private_tags: e.target.value }))
+              }
+              placeholder={t(
+                "admin.nodeEdit.privateTagsPlaceholder",
+                "多个标签用 ; 分隔，可写 IP 或内网地址；仅登录后可见"
+              )}
+              disabled={loading}
+            />
+          </div>
         </div>
         <Flex gap="2" align={"start"} className="mt-4">
           <Button
@@ -131,6 +148,7 @@ export function EditDialog({ item }: { item: z.infer<typeof schema> }) {
                 token: form.token,
                 remark: form.remark,
                 public_remark: form.public_remark,
+                private_tags: form.private_tags,
               };
               saveClientData(item.uuid, payload, setLoading, () =>
                 setOpen(false)

@@ -175,6 +175,19 @@ const EmptyNodesGuide = () => {
   );
 };
 
+// 安装脚本与二进制的来源仓库（本项目 fork）。
+const AGENT_REPO = "eleost04/komari-agent";
+const AGENT_RAW_BASE = `https://raw.githubusercontent.com/${AGENT_REPO}/refs/heads/main`;
+
+/**
+ * 自有域名加速：使用面板同域的 /agent 目录。
+ * 该目录由反向代理托管 install.sh / install.ps1 与各平台二进制，
+ * 供国内或受限网络绕过 GitHub 直连。
+ */
+function ownDomainAgentBase(): string {
+  return `${window.location.origin}/agent`;
+}
+
 type AutoDiscoveryInstallOptions = {
   disableWebSsh: boolean;
   disableAutoUpdate: boolean;
@@ -191,6 +204,7 @@ type AutoDiscoveryInstallOptions = {
   interval: string;
   monthRotate: string;
   installVersion: string;
+  useOwnDomain: boolean;
 };
 
 function useIsSnapshotBackend() {
@@ -250,6 +264,7 @@ const AutoDiscoverySection = ({
       interval: "",
       monthRotate: "",
       installVersion: "",
+      useOwnDomain: false,
     });
 
   const [enableGhproxy, setEnableGhproxy] = React.useState(false);
@@ -307,7 +322,11 @@ const AutoDiscoverySection = ({
       args.push("--gpu");
     }
     const ghproxy = installOptions.ghproxy.trim();
-    if (enableGhproxy && ghproxy) {
+    if (installOptions.useOwnDomain) {
+      // 自有域名加速：脚本与二进制均走面板同域 /agent
+      args.push(`--install-base-url`);
+      args.push(ownDomainAgentBase());
+    } else if (enableGhproxy && ghproxy) {
       const finalUrl = (
         ghproxy.startsWith("http") ? ghproxy : `http://${ghproxy}`
       ).replace(/\/+$/, "");
@@ -365,8 +384,13 @@ const AutoDiscoverySection = ({
     if (selectedPlatform === "windows") {
       scriptFile = "install.ps1";
     }
-    let scriptUrl = `https://raw.githubusercontent.com/komari-monitor/komari-agent/refs/heads/main/${scriptFile}`;
-    if (enableGhproxy && ghproxy) {
+    // 脚本来源：
+    // 启用自有域名加速 → 面板同域 /agent/ 目录（由反向代理托管）
+    // 否则 → 本项目 fork 的 raw 内容（可选 ghproxy 前缀）
+    let scriptUrl = `${AGENT_RAW_BASE}/${scriptFile}`;
+    if (installOptions.useOwnDomain) {
+      scriptUrl = `${ownDomainAgentBase()}/${scriptFile}`;
+    } else if (enableGhproxy && ghproxy) {
       scriptUrl = scriptUrl.slice(8); // 去掉 https://
       if (ghproxy.endsWith("/")) {
         scriptUrl = `${ghproxy}${scriptUrl}`;
@@ -405,6 +429,7 @@ const AutoDiscoverySection = ({
         // Docker 运行时不支持安装脚本专用参数，剔除它们及其取值
         const installOnlyFlags = [
           "--install-ghproxy",
+          "--install-base-url",
           "--install-dir",
           "--install-service-name",
           "--install-version",
@@ -703,6 +728,32 @@ const AutoDiscoverySection = ({
                 }
               />
             )}
+
+            <Flex gap="2" align="center">
+              <Checkbox
+                checked={installOptions.useOwnDomain}
+                onCheckedChange={(checked) =>
+                  setInstallOptions((prev) => ({
+                    ...prev,
+                    useOwnDomain: Boolean(checked),
+                  }))
+                }
+              />
+              <label
+                className="text-sm font-bold cursor-pointer"
+                onClick={() =>
+                  setInstallOptions((prev) => ({
+                    ...prev,
+                    useOwnDomain: !prev.useOwnDomain,
+                  }))
+                }
+              >
+                {t(
+                  "admin.nodeTable.useOwnDomain",
+                  "自有域名加速（不依赖 GitHub）"
+                )}
+              </label>
+            </Flex>
 
             <Flex gap="2" align="center">
               <Checkbox
@@ -1524,6 +1575,7 @@ type InstallOptions = {
   interval: string;
   monthRotate: string;
   installVersion: string;
+  useOwnDomain: boolean;
 };
 function GenerateCommandButton({
   node,
@@ -1552,6 +1604,7 @@ function GenerateCommandButton({
     interval: "",
     monthRotate: "",
     installVersion: "",
+    useOwnDomain: false,
   });
 
   const [enableGhproxy, setEnableGhproxy] = React.useState(false);
@@ -1610,7 +1663,11 @@ function GenerateCommandButton({
       args.push("--gpu");
     }
     const ghproxy = installOptions.ghproxy.trim();
-    if (enableGhproxy && ghproxy) {
+    if (installOptions.useOwnDomain) {
+      // 自有域名加速：脚本与二进制均走面板同域 /agent
+      args.push(`--install-base-url`);
+      args.push(ownDomainAgentBase());
+    } else if (enableGhproxy && ghproxy) {
       const finalUrl = (
         ghproxy.startsWith("http")
           ? ghproxy
@@ -1663,19 +1720,18 @@ function GenerateCommandButton({
     if (selectedPlatform === "windows") {
       scriptFile = "install.ps1";
     }
-    let scriptUrl =
-      `https://raw.githubusercontent.com/komari-monitor/komari-agent/refs/heads/main/${scriptFile}`;
-    if (enableGhproxy) {
-      if (enableGhproxy && ghproxy) {
-        scriptUrl = scriptUrl.slice(8); // 去掉 https://
-        if (ghproxy.endsWith("/")) {
-          scriptUrl = `${ghproxy}${scriptUrl}`;
-        } else {
-          scriptUrl = `${ghproxy}/${scriptUrl}`;
-        }
-        if (!scriptUrl.startsWith("http")) {
-          scriptUrl = `http://${scriptUrl}`;
-        }
+    let scriptUrl = `${AGENT_RAW_BASE}/${scriptFile}`;
+    if (installOptions.useOwnDomain) {
+      scriptUrl = `${ownDomainAgentBase()}/${scriptFile}`;
+    } else if (enableGhproxy && ghproxy) {
+      scriptUrl = scriptUrl.slice(8); // 去掉 https://
+      if (ghproxy.endsWith("/")) {
+        scriptUrl = `${ghproxy}${scriptUrl}`;
+      } else {
+        scriptUrl = `${ghproxy}/${scriptUrl}`;
+      }
+      if (!scriptUrl.startsWith("http")) {
+        scriptUrl = `http://${scriptUrl}`;
       }
     }
     let finalCommand = "";
@@ -1704,6 +1760,7 @@ function GenerateCommandButton({
         // Docker 运行时不支持安装脚本专用参数，剔除它们及其取值
         const installOnlyFlags = [
           "--install-ghproxy",
+          "--install-base-url",
           "--install-dir",
           "--install-service-name",
           "--install-version",
@@ -1942,6 +1999,32 @@ function GenerateCommandButton({
                   }
                 />
               )}
+
+              <Flex gap="2" align="center">
+                <Checkbox
+                  checked={installOptions.useOwnDomain}
+                  onCheckedChange={(checked) =>
+                    setInstallOptions((prev) => ({
+                      ...prev,
+                      useOwnDomain: Boolean(checked),
+                    }))
+                  }
+                />
+                <label
+                  className="text-sm font-bold cursor-pointer"
+                  onClick={() =>
+                    setInstallOptions((prev) => ({
+                      ...prev,
+                      useOwnDomain: !prev.useOwnDomain,
+                    }))
+                  }
+                >
+                  {t(
+                    "admin.nodeTable.useOwnDomain",
+                    "自有域名加速（不依赖 GitHub）"
+                  )}
+                </label>
+              </Flex>
 
               <Flex gap="2" align="center">
                 <Checkbox
@@ -2354,6 +2437,7 @@ function EditButton({ node }: { node: NodeDetail }) {
   const nameRef = React.useRef<HTMLInputElement>(null);
   const groupRef = React.useRef<HTMLInputElement>(null);
   const tagsRef = React.useRef<HTMLInputElement>(null);
+  const privateTagsRef = React.useRef<HTMLInputElement>(null);
   const publicRemarkRef = React.useRef<HTMLTextAreaElement>(null);
   const privateRemarkRef = React.useRef<HTMLTextAreaElement>(null);
   const [hidden, setHidden] = useState(false);
@@ -2378,6 +2462,7 @@ function EditButton({ node }: { node: NodeDetail }) {
           public_remark: publicRemarkRef.current?.value,
           group: groupRef.current?.value,
           tags: tagsRef.current?.value,
+          private_tags: privateTagsRef.current?.value,
           hidden,
           traffic_limit,
           traffic_limit_type,
@@ -2441,6 +2526,25 @@ function EditButton({ node }: { node: NodeDetail }) {
               </Tips>
             </label>
             <TextField.Root defaultValue={node.tags} ref={tagsRef} />
+          </div>
+          <div>
+            <label className="mb-1 text-sm font-medium text-muted-foreground flex items-center">
+              {t("admin.nodeEdit.privateTags", "隐私标签（仅登录可见）")}
+              <label className="text-muted-foreground ml-1 text-xs self-end">
+                {t(
+                  "admin.nodeEdit.privateTagsDescription",
+                  "多个用 ; 分隔，可写 IP 或内网地址"
+                )}
+              </label>
+            </label>
+            <TextField.Root
+              defaultValue={node.private_tags}
+              ref={privateTagsRef}
+              placeholder={t(
+                "admin.nodeEdit.privateTagsPlaceholder",
+                "仅登录后可见，访客无法获取"
+              )}
+            />
           </div>
           <div>
             <label className="block mb-1 text-sm font-medium text-muted-foreground">

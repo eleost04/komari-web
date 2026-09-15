@@ -21,6 +21,8 @@ export type NodeDetail = {
   price: number;
   remark: string | undefined;
   public_remark: string;
+  /** 隐私标签：仅登录管理员可见 */
+  private_tags?: string;
   group: string | undefined;
   billing_cycle: number;
   expired_at: string;
