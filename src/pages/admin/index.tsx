@@ -205,6 +205,7 @@ type AutoDiscoveryInstallOptions = {
   monthRotate: string;
   installVersion: string;
   useOwnDomain: boolean;
+  useSudo: boolean;
 };
 
 function useIsSnapshotBackend() {
@@ -265,6 +266,7 @@ const AutoDiscoverySection = ({
       monthRotate: "",
       installVersion: "",
       useOwnDomain: false,
+      useSudo: false,
     });
 
   const [enableGhproxy, setEnableGhproxy] = React.useState(false);
@@ -406,7 +408,7 @@ const AutoDiscoverySection = ({
     switch (selectedPlatform) {
       case "linux":
         finalCommand =
-          `wget -qO- ${quoteShellArg(scriptUrl)} | sudo bash -s -- ` +
+          `wget -qO- ${quoteShellArg(scriptUrl)} | ${installOptions.useSudo ? "sudo bash" : "bash"} -s -- ` +
           quoteShellArgs(args);
         break;
       case "windows":
@@ -549,6 +551,30 @@ const AutoDiscoverySection = ({
       {showOptions && (
         <Flex direction="column" gap="2">
           <div className="grid grid-cols-2 gap-2">
+            {selectedPlatform === "linux" && (
+              <Flex gap="2" align="center">
+                <Checkbox
+                  checked={installOptions.useSudo}
+                  onCheckedChange={(checked) =>
+                    setInstallOptions((prev) => ({
+                      ...prev,
+                      useSudo: Boolean(checked),
+                    }))
+                  }
+                />
+                <label
+                  className="text-sm font-normal cursor-pointer"
+                  onClick={() =>
+                    setInstallOptions((prev) => ({
+                      ...prev,
+                      useSudo: !prev.useSudo,
+                    }))
+                  }
+                >
+                  {t("admin.nodeTable.useSudo", "使用 sudo")}
+                </label>
+              </Flex>
+            )}
             <Flex gap="2" align="center">
               <Checkbox
                 checked={installOptions.disableWebSsh}
@@ -1576,6 +1602,7 @@ type InstallOptions = {
   monthRotate: string;
   installVersion: string;
   useOwnDomain: boolean;
+  useSudo: boolean;
 };
 function GenerateCommandButton({
   node,
@@ -1605,6 +1632,7 @@ function GenerateCommandButton({
     monthRotate: "",
     installVersion: "",
     useOwnDomain: false,
+    useSudo: false,
   });
 
   const [enableGhproxy, setEnableGhproxy] = React.useState(false);
@@ -1738,7 +1766,7 @@ function GenerateCommandButton({
     switch (selectedPlatform) {
       case "linux":
         finalCommand =
-          `wget -qO- ${quoteShellArg(scriptUrl)} | sudo bash -s -- ` +
+          `wget -qO- ${quoteShellArg(scriptUrl)} | ${installOptions.useSudo ? "sudo bash" : "bash"} -s -- ` +
           quoteShellArgs(args);
         break;
       case "windows":
@@ -1821,6 +1849,30 @@ function GenerateCommandButton({
               {t("admin.nodeTable.installOptions", "安装选项")}
             </label>
             <div className="grid grid-cols-2 gap-2">
+              {selectedPlatform === "linux" && (
+                <Flex gap="2" align="center">
+                  <Checkbox
+                    checked={installOptions.useSudo}
+                    onCheckedChange={(checked) => {
+                      setInstallOptions((prev) => ({
+                        ...prev,
+                        useSudo: Boolean(checked),
+                      }));
+                    }}
+                  />
+                  <label
+                    className="text-sm font-normal"
+                    onClick={() => {
+                      setInstallOptions((prev) => ({
+                        ...prev,
+                        useSudo: !prev.useSudo,
+                      }));
+                    }}
+                  >
+                    {t("admin.nodeTable.useSudo", "使用 sudo")}
+                  </label>
+                </Flex>
+              )}
               <Flex gap="2" align="center">
                 <Checkbox
                   checked={installOptions.disableWebSsh}
